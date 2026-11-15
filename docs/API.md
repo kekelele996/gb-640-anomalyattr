@@ -8,6 +8,7 @@
 |---|---|
 | `/` | 指标接入、四账、原因码、批次刻度 |
 | `/anomalies` | 水位时间轴、确认点与候选点、事件清单 |
+| `/review` | 复盘卡、敏感性矩阵、同批异常、逐日证据 |
 | `/attribution` | 三因子分解、门店贡献、窗口覆盖 |
 | `/drilldown` | 渠道分解与门店明细 |
 | `/batches` | 批次刻度、运行清单、同源重跑 |
@@ -34,6 +35,10 @@
 | GET | `/api/reconcile` | 四账与逐条检查 |
 | GET | `/api/report` | 报告结构与结论 |
 | GET | `/api/export/{kind}` | `points.csv` / `anomalies.csv` / `attribution.csv` / `manifest.json` |
+| GET | `/api/review` | 复盘卡、敏感性九组合、同批异常；`run_id` 可指定批次 |
+| GET | `/api/review/{event_id}` | 单张复盘卡（含逐日证据与同向对照） |
+| GET | `/api/review/sensitivity` | 单组合明细：`window` 14-42、`threshold` 1-10 |
+| GET | `/api/review/cards.csv` | 复盘卡 CSV（BOM + 标记码） |
 
 ## 失败返回
 
@@ -48,5 +53,8 @@
 | 批次不存在 | 404 | `E_BATCH_NOT_FOUND` |
 | 还没有批次 | 404 | `E_NO_RUN` |
 | 导出类型未知 | 400 | `E_BAD_EXPORT` |
+| 复盘窗口或阈值越界 | 400 | `E_BAD_AXIS` |
+| 复盘卡不存在 | 404 | `E_CARD_NOT_FOUND` |
+| 当前批次没有有效点 | 400 | `E_NO_POINTS` |
 
 错误体固定为 `{"error": "...", "message": "..."}`，空态额外带 `empty_state`。

@@ -120,3 +120,16 @@ def test_filter_detections_by_status(detection):
     assert len(confirmed) == 4
     channels = detect_service.filter_detections(detection["detections"], "", "direct")
     assert {item["channel"] for item in channels} == {"direct"}
+
+
+def test_baseline_minimum_boundary_thirteen_points():
+    # 同层点数 13 不判、14 才判：边界既不提前判也不漏判
+    rows = [{"biz_date": (dt.date(2026, 9, 1) + dt.timedelta(days=index)).isoformat(),
+             "stratum": "workday", "revenue_net": str(1000 + (index % 5) * 10)}
+            for index in range(16)]
+    scan = stratify.scan_series(("H01", "ota"), rows, SETTINGS)
+    statuses = [item.status for item in scan.detections]
+    assert statuses[13] == "insufficient"
+    assert statuses[13 - 1] == "insufficient"
+    assert statuses[14] != "insufficient"
+    assert scan.detections[14].baseline_points == SETTINGS.min_baseline_points

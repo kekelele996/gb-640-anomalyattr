@@ -38,9 +38,22 @@ REASONS: dict[str, Reason] = {r.code: r for r in (
     Reason("N_HEADER_ONLY", "仅表头", "notice", "只有表头没有数据行"),
     Reason("N_NO_MAD", "离散度为 0", "notice", "同层窗口全部相同，改用平均绝对偏差"),
     Reason("N_Z_UNDEFINED", "z 不可计算", "notice", "平均绝对偏差也为 0，本点不判"),
+    Reason("R_NO_DISPERSION", "基线离散度为 0", "review", "剔过节假日后基线仍全等，本卡不判"),
+    Reason("R_HOLIDAY_THIN", "节假日分层不足", "review", "节假日占基线三成以上，剔除后结论可能不成立"),
+    Reason("R_CORRELATED", "同批异常", "review", "同日同向且门店互不相同的确认点归为一组"),
+    Reason("R_FLIP", "敏感性翻转", "review", "换窗口或阈值后结论不再成立"),
+    Reason("R_ZERO_BASE", "因子无法分解", "review", "基期或当期因子为 0，差额全进残差"),
 )}
 
-ACCOUNTS = ("quarantine", "duplicate", "missing", "late", "notice")
+ACCOUNTS = ("quarantine", "duplicate", "missing", "late", "notice", "review")
+
+# 复盘卡的稳定码：编排层与本模块共用同一份字面量
+REVIEW_NO_DISPERSION = "R_NO_DISPERSION"
+REVIEW_HOLIDAY_THIN = "R_HOLIDAY_THIN"
+REVIEW_CORRELATED = "R_CORRELATED"
+REVIEW_FLIP = "R_FLIP"
+REVIEW_ZERO_BASE = "R_ZERO_BASE"
+
 EMPTY_STATES = {
     "no_rows": "E_NO_ROWS",
     "header_only": "E_HEADER_ONLY",

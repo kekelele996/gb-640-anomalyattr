@@ -10,6 +10,7 @@
 - **异常检测**：工作日 / 休息日分层，滚动 28 个同层点算 median 与 MAD，`|z| ≥ 3.5` 且连续 2 天确认。
 - **归因分解**：LMDI 三因子分解，残差显式；维度份额前 5 组单列，其余合并并吸收尾差。
 - **批次与清单**：`run_id` 由输入 sha256 + 规则版本 + 参数摘要派生，同源重跑直接复用。
+- **异常复盘**：确认事件生成复盘卡（基线、因子、动作、置信），并对窗口与阈值扫九个组合；翻转的结论标 `unstable`。
 
 ## 模块
 
@@ -21,6 +22,7 @@
 | M4 异常检测 | `GET /api/anomalies` | 同层窗口 median/MAD、连续确认、MAD 为 0 的退路 |
 | M5 归因与批次 | `GET /api/attribution`、`POST /api/attribution/rerun`、`GET /api/batches` | LMDI 三因子、份额守恒、幂等重跑 |
 | M6 报告与导出 | `GET /api/report`、`GET /api/export/{kind}` | 四账、清单、证据行导出 |
+| M7 异常复盘 | `GET /api/review`、`GET /api/review/{event_id}`、`GET /api/review/sensitivity`、`GET /api/review/cards.csv` | 剔除节假日的基线、LMDI 因子、敏感性九组合、同批异常 |
 
 ## 核心规则
 
@@ -31,6 +33,8 @@
 - 份额 = 组差额 ÷ 总差额；「其他」吸收尾差，合计恒为 1.0000。
 
 异常判定：当日之前最近 28 个同层点算 median 与 MAD；`z = 0.6745 × (x − median) / MAD`；`|z| ≥ 3.5` 为候选，相邻业务日同向连续 2 天为确认；同层点少于 14 不判；MAD 为 0 退到平均绝对偏差，仍为 0 则本点不判。
+
+复盘：对每条确认异常重算基线——同层窗口先剔节假日点（占三成以上记 `R_HOLIDAY_THIN`），离散度为 0 时不做除法、记 `R_NO_DISPERSION`；再用窗口 21/28/35 × 阈值 2.5/3.5/4.5 扫九个组合，任一组不再成立即标 `unstable`。
 
 字段定义、时区、去重键、空态与对账等式见 `docs/DATA-DICTIONARY.md`；陷阱与测试映射见 `docs/DEPTH.md`。
 
@@ -53,19 +57,20 @@ docker compose down -v --remove-orphans
 3. `/attribution` 看三因子与残差，`/drilldown` 看渠道与门店份额。
 4. `/batches` 点「重跑」，批次号不变、行数不变。
 5. `/report` 导出四个文件，逐行带行号与原因码。
+6. `/review` 看复盘卡与敏感性矩阵；在 `/` 用选样例导入 `review_marginal.csv` 后回 `/review`，可以看到翻转的组合与同批异常。
 
 ## 接口与页面
 
-页面 6 个：`/`、`/anomalies`、`/attribution`、`/drilldown`、`/batches`、`/report`；接口清单与失败码见 `docs/API.md`，交互式文档在 `/docs`。
+页面 7 个：`/`、`/anomalies`、`/review`、`/attribution`、`/drilldown`、`/batches`、`/report`；接口清单与失败码见 `docs/API.md`，交互式文档在 `/docs`。
 
 ## 目录
 
 ```text
 app/
   main.py config.py errors.py reasons.py manifest.py store.py web.py
-  modules/m1_ingest/ m2_calendar/ m3_quality/ m4_detect/ m5_attrib/ m6_export/
+  modules/m1_ingest/ m2_calendar/ m3_quality/ m4_detect/ m5_attrib/ m6_export/ m7_review/
   templates/  static/
 docs/DEPTH.md docs/DATA-DICTIONARY.md docs/API.md docs/SAMPLES.md
 tests/ conftest.py test_<模块>.py test_e2e.py fixtures/expected.py
-sample_data/ 6 个样例
+sample_data/ 7 个样例
 ```

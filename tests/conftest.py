@@ -19,11 +19,13 @@ from app import config                                   # noqa: E402
 from app.main import create_app                          # noqa: E402
 from app.modules.m4_detect import service as detect_service  # noqa: E402
 from app.modules.m5_attrib import service as batch_service  # noqa: E402
+from app.modules.m7_review import service as review_service  # noqa: E402
 from app.store import Store                              # noqa: E402
 
 SAMPLE_DIR = ROOT / "sample_data"
 EVAL_DATE = dt.date(2026, 11, 22)
 DIRTY = "daily_metrics_dirty.csv"
+REVIEW = "review_marginal.csv"
 
 
 @pytest.fixture()
@@ -64,6 +66,28 @@ def detection(settings, points) -> dict:
 @pytest.fixture()
 def attribution(settings, store, run) -> dict:
     return batch_service.attribution(settings, store, run["run_id"], "hotel_code", 7, 7)
+
+
+@pytest.fixture()
+def review_bytes() -> bytes:
+    return (SAMPLE_DIR / REVIEW).read_bytes()
+
+
+@pytest.fixture()
+def review_run(settings, store, review_bytes) -> dict:
+    return batch_service.run_batch(settings, store, review_bytes, REVIEW)
+
+
+@pytest.fixture()
+def review(settings, store, review_run) -> dict:
+    return review_service.review(settings, store, review_run["run_id"])
+
+
+@pytest.fixture()
+def review_client(settings, review_run):
+    app = create_app(settings)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture()

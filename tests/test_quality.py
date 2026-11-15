@@ -142,3 +142,24 @@ def test_reason_counts_grouped_by_account(run):
 def test_notices_include_bom_only(run):
     codes = {item["code"] for item in run["notices"]}
     assert codes == {"N_BOM_STRIPPED"}
+
+
+def test_late_window_boundary_exactly_three_days():
+    # TRAP-13 边界：恰好 3 天仍在补报窗口内，第 4 天才算超窗（不多算一天也不少算）
+    import datetime as dt
+
+    from app import config
+    from app.modules.m3_quality import rules
+    from tests.test_quality import _row as make_row
+
+    settings = config.Settings(db_path="/tmp/unused.sqlite", seed_on_start=False)
+    snapshot = dt.datetime(2026, 11, 5, 22, tzinfo=dt.timezone.utc)
+    row = make_row(1, "1000", snapshot)
+    row.late_days = 3
+    assert [mark["code"] for mark in rules.mark_lateness([row], settings)] == [
+        "L_LATE_ARRIVAL"]
+    assert row.late_flag is True and row.out_of_window is False
+    row.late_days = 4
+    assert [mark["code"] for mark in rules.mark_lateness([row], settings)] == [
+        "L_OUT_OF_WINDOW"]
+    assert row.out_of_window is True

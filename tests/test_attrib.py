@@ -139,3 +139,14 @@ def test_batches_api_and_detail(client, run):
     assert detail["key_parts"]["rules_version"] == config.RULES_VERSION
     missing = client.get("/api/batches/run-nope")
     assert missing.status_code == 404
+
+
+def test_zero_total_delta_marks_share_none():
+    # TRAP-24 边界：总差额为 0 时不除零，份额整体记空并显式标 zero_total
+    rows = [{"key": "H01", "delta": Decimal("0")},
+            {"key": "H02", "delta": Decimal("0")}]
+    result = dimension.shares(rows, SETTINGS)
+    assert result["zero_total"] is True
+    assert result["share_sum"] == "-"
+    assert all(row["share"] is None for row in result["rows"])
+    assert result["other"]["share"] is None

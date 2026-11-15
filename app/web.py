@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -19,6 +19,7 @@ from app.modules.m3_quality import service as quality_service
 from app.modules.m4_detect import service as detect_service
 from app.modules.m5_attrib import batches, service as attrib_service
 from app.modules.m6_export import service as export_service
+from app.modules.m7_review import service as review_service
 from app.store import Store
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
@@ -27,6 +28,7 @@ templates = Jinja2Templates(directory=TEMPLATE_DIR)
 NAV = (
     ("/", "接入", "index"),
     ("/anomalies", "异常", "anomalies"),
+    ("/review", "复盘", "review"),
     ("/attribution", "分解", "attribution"),
     ("/drilldown", "下钻", "drilldown"),
     ("/batches", "批次", "batches"),
@@ -153,6 +155,27 @@ def stratum_text(stratum: str) -> str:
     return config.STRATUM_LABELS.get(stratum, stratum)
 
 
+def factor_text(key: str) -> str:
+    return {"rooms": "可售房晚", "occ": "出租率", "adr": "均价"}.get(key, key or "-")
+
+
+def confidence_text(level: str) -> str:
+    return {"high": "高", "medium": "中", "low": "低"}.get(level, level)
+
+
+def verdict_text(verdict: str) -> str:
+    return {"stable": "稳定", "unstable": "翻转"}.get(verdict, verdict)
+
+
+def relation_text(kind: str) -> str:
+    return {"same_hotel": "同门店", "same_channel": "同渠道",
+            "chain": "跨店跨渠道"}.get(kind, kind or "-")
+
+
+def scope_text(scope: str) -> str:
+    return {"channel": "渠道", "chain": "连锁"}.get(scope, scope or "-")
+
+
 templates.env.filters.update({
     "money": money,
     "int": integer,
@@ -162,6 +185,11 @@ templates.env.filters.update({
     "direction": direction_text,
     "channel": channel_text,
     "stratum": stratum_text,
+    "factor": factor_text,
+    "confidence": confidence_text,
+    "verdict": verdict_text,
+    "relation": relation_text,
+    "scope": scope_text,
     "reason": reasons.label,
 })
 
@@ -242,6 +270,21 @@ def page_anomalies(request: Request):
                  detection=result["summary"], events=result["events"],
                  detections=confirmed[-60:], notes=result["notes"],
                  timeline=timeline)
+
+
+@pages.get("/review", response_class=HTMLResponse)
+def page_review(request: Request, run_id: str = Query(default="")):
+    app_state = state(request)
+    result = review_service.review(app_state.settings, app_state.store, run_id or None)
+    if not result:
+        return _page(request, "review.html", "review", axis_kind="date",
+                     axis=axis_for_dates([], ""), review={})
+    active_run = result.get("run") or app_state.current_run()
+    return _page(request, "review.html", "review", axis_kind="date",
+                 axis=axis_for_dates(grid_days(active_run),
+                                     summary_watermark(active_run),
+                                     result.get("marks", [])),
+                 review=result, run=active_run)
 
 
 @pages.get("/attribution", response_class=HTMLResponse)

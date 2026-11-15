@@ -121,3 +121,15 @@ def test_alias_header_maps_to_canonical_columns():
     assert mapping["rooms_sold"] == 5
     assert unknown == ["备注列"]
     assert duplicated == []
+
+
+def test_full_last_line_without_newline_is_accepted():
+    # TRAP-16 边界：末行没有换行符但列数齐全，是完整行，不是截断
+    header = ("hotel_code,hotel_name,channel,biz_date,rooms_available,rooms_sold,adr,"
+              "revenue_net,updated_at")
+    row = "H01,蓝湾·滨海,ota,2026-11-01,180,120,700.00,84000.00,2026-11-02T06:00:00+08:00"
+    data = (header + "\n" + row).encode("utf-8")
+    result = service.ingest(data, "tail.csv", _settings())
+    assert result.total_records == 1
+    assert len(result.rows) == 1
+    assert result.rejects == []
